@@ -101,13 +101,17 @@ class IdRndDataset(Dataset):
     def __len__(self):
         return len(self.imgs)
 
-    def __getitem__(self, idx):
+    def get_raw(self, idx):
         img, label = self.imgs[idx], self.labels[idx]
         if not self.preload:
             img = self. _preload(img, self.size)
         img = self.transform_fn(img)
         if self.corrupt_fn is not None:
             img = self.corrupt_fn(img)
+        return img, label
+
+    def __getitem__(self, idx):
+        img, label = self.get_raw(idx)
         img = self._preprocess(img)
         return {'img': img, 'label': label}
 

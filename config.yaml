@@ -31,7 +31,7 @@ val:
   preload: *PRELOAD
   preload_size: *PRELOAD_SIZE
   bounds: [.9, 1]
-  corrupt: *CORRUPT
+  corrupt: null
 
 batch_size: 32
 model: densenet121

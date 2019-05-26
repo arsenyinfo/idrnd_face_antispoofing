@@ -6,6 +6,7 @@ import torch
 import yaml
 from fire import Fire
 from glog import logger
+from tensorboardX import SummaryWriter
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.parallel import DataParallel
@@ -46,6 +47,7 @@ class Trainer:
         self.last_improvement = 0
         self.work_dir = work_dir
         self.checkpoint = os.path.join(self.work_dir, checkpoint)
+        self.tb_writer = SummaryWriter(logdir=work_dir)
 
     def to_device(self, x):
         if type(x) == dict:
@@ -125,13 +127,18 @@ class Trainer:
             logger.info(f'Best model has been saved at {n_epoch}, accuracy is {metric:.4f}')
         else:
             if self.last_improvement + self.early_stop < n_epoch:
-                return True, (train_loss, val_loss, metric)
+                return True, (train_loss, val_loss, train_acc, val_acc)
 
-        return False, (train_loss, val_loss, metric)
+        return False, (train_loss, val_loss, train_acc, val_acc)
 
     def fit(self):
         for i in range(self.epochs):
-            finished, _ = self.fit_one_epoch(i)
+            finished, (train_loss, val_loss, train_acc, val_acc) = self.fit_one_epoch(i)
+            for name, scalar in (('train_loss', train_loss),
+                                 ('val_loss', val_loss),
+                                 ('train_acc', train_acc),
+                                 ('val_acc', val_acc)):
+                self.tb_writer.add_scalar(name, scalar, global_step=i)
             if finished:
                 break
 
