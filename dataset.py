@@ -118,7 +118,7 @@ class IdRndDataset(Dataset):
     @staticmethod
     def from_config(config):
         config = deepcopy(config)
-        files = glob('/home/arseny/datasets/idrnd_train/**/*.png', recursive=True)
+        files = glob(f'{config.get("data_dir", "/home/arseny/datasets/idrnd_train")}/**/*.png', recursive=True)
 
         transform_fn = aug.get_transforms(size=config['size'], scope=config['scope'], crop=config['crop'])
         normalize_fn = aug.get_normalize()
@@ -133,7 +133,8 @@ class IdRndDataset(Dataset):
         data = subsample(data=files,
                          bounds=config.get('bounds', (0, 1)),
                          hash_fn=hash_fn,
-                         verbose=verbose)
+                         verbose=verbose,
+                         salt=config['salt'])
 
         return IdRndDataset(files=tuple(data),
                             preload=config['preload'],

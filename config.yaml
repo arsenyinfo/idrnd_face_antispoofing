@@ -1,5 +1,6 @@
 name: baseline
 train:
+  data_dir: &DATA_DIR /home/arseny/datasets/idrnd_train
   size: &SIZE 256
   crop: random
   preload: &PRELOAD false
@@ -25,6 +26,7 @@ train:
     - name: fog
 
 val:
+  data_dir: *DATA_DIR
   size: *SIZE
   scope: geometric
   crop: center
