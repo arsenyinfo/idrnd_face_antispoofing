@@ -6,6 +6,7 @@ import torch
 import yaml
 from fire import Fire
 from glog import logger
+from joblib import cpu_count
 from tensorboardX import SummaryWriter
 from torch import nn
 from torch.nn import functional as F
@@ -15,6 +16,7 @@ from torch.serialization import save
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from convert import main as convert_model
 from dataset import IdRndDataset
 from models import get_baseline
 
@@ -143,11 +145,11 @@ class Trainer:
                 break
 
 
-def make_dataloaders(train_cfg, val_cfg, batch_size):
+def make_dataloaders(train_cfg, val_cfg, batch_size, multiprocessing=False):
     train = IdRndDataset.from_config(train_cfg)
     val = IdRndDataset.from_config(val_cfg)
 
-    shared_params = {'batch_size': batch_size, 'shuffle': True}
+    shared_params = {'batch_size': batch_size, 'shuffle': True, 'num_workers': cpu_count() if multiprocessing else 0}
 
     train = DataLoader(train, drop_last=True, **shared_params)
     val = DataLoader(val, drop_last=False, **shared_params)
@@ -166,7 +168,7 @@ def update_config(config, params):
         conf[key] = v
 
 
-def fit(**kwargs):
+def fit(parallel=False, **kwargs):
     with open('config.yaml') as cfg:
         config = yaml.load(cfg)
     update_config(config, kwargs)
@@ -175,7 +177,9 @@ def fit(**kwargs):
     with open(os.path.join(work_dir, 'config.yaml'), 'w') as out:
         yaml.dump(config, out)
 
-    train, val = make_dataloaders(config['train'], config['val'], config['batch_size'])
+    config['train']['salt'] = config['val']['salt'] = config['name']
+
+    train, val = make_dataloaders(config['train'], config['val'], config['batch_size'], multiprocessing=parallel)
     model = DataParallel(get_baseline(config['model']))
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     trainer = Trainer(model=model,
@@ -188,6 +192,10 @@ def fit(**kwargs):
                       device='cuda:0',
                       )
     trainer.fit()
+    convert_model(model_path=os.path.join(work_dir, 'model.pt'),
+                  out_name=os.path.join(work_dir, "model.trcd"),
+                  name=config['model']
+                  )
 
 
 if __name__ == '__main__':

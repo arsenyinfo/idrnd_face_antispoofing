@@ -1,14 +1,18 @@
-from pretrainedmodels.models import densenet121, densenet201, nasnetalarge, se_resnet50, se_resnext101_32x4d
+import torch
+from pytorchcv.model_provider import get_model
 from torch import nn
 from torch.nn import functional as F
 
 
 class Baseline(nn.Module):
-    def __init__(self, backbone_fn):
+    def __init__(self, model_name, dropout):
         super().__init__()
-        model = backbone_fn(pretrained='imagenet')
+        model = get_model(model_name, pretrained='imagenet')
         self.backbone = model.features
-        self.linear = nn.Linear(model.last_linear.in_features, 4)
+        _, n_features, *_ = self.backbone(torch.rand(1, 3, 256, 256)).size()
+        self.linear = nn.Sequential(nn.Dropout(dropout),
+                                    nn.Linear(n_features, 4),
+                                    )
 
     def forward(self, x):
         x = self.backbone(x)
@@ -19,10 +23,9 @@ class Baseline(nn.Module):
 
 
 def get_baseline(name='densenet121'):
-    backbones = {'densenet121': densenet121,
-                 'densenet201': densenet201,
-                 'se_resnet50': se_resnet50,
-                 'se_resnext101': se_resnext101_32x4d,
-                 'nasnet': nasnetalarge,
-                 }
-    return Baseline(backbones[name])
+    if '.' in name:
+        model_name, dropout = name.split('.')
+        dropout = int(dropout) / 100
+    else:
+        model_name, dropout = name, .5
+    return Baseline(model_name, dropout)
