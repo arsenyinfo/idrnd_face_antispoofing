@@ -1,6 +1,7 @@
 import argparse
 import os
 from functools import lru_cache
+from glob import glob
 
 import albumentations as albu
 import cv2
@@ -11,8 +12,6 @@ from torch.jit import load
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-PATH_MODEL = 'model.trcd'
-PATH_MODEL2 = 'model2.trcd'
 BATCH_SIZE = 32
 
 
@@ -90,19 +89,21 @@ if __name__ == '__main__':
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = load(PATH_MODEL).to(device)
-    model2 = load(PATH_MODEL2).to(device)
 
     # predict
     samples, frames, probabilities = [], [], []
 
+    models = [load(x).to(device) for x in glob('*.trcd')]
+
     with torch.no_grad():
         for video, frame, batch in tqdm(dataloader):
             batch = batch.to(device)
-            raw1 = torch.softmax(model(batch), dim=1).cpu().numpy()
-            raw2 = torch.softmax(model2(batch), dim=1).cpu().numpy()
-            raw = (raw1 + raw2) / 2
-            proba = raw[:, :-1].sum(axis=1)
+
+            acc = np.zeros((BATCH_SIZE, 4), dtype='float32')
+            for model in models:
+                acc += torch.softmax(model(batch), dim=1).cpu().numpy()
+            acc /= len(models)
+            proba = acc[:, :-1].sum(axis=1)
             samples.extend(video)
             frames.extend(frame.numpy())
             probabilities.extend(proba)
