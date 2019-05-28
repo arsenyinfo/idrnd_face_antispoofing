@@ -58,7 +58,8 @@ class Trainer:
 
     def get_acc(self, outputs, y):
         a = outputs.argmax(dim=1)
-        return (a == y).cpu().numpy().mean()
+        b = y.argmax(dim=1)
+        return (a == b).cpu().numpy().mean()
 
     def _train_epoch(self, n_epoch):
         self.model.train(True)
@@ -169,7 +170,7 @@ def update_config(config, params):
 
 
 def soft_cross_entropy(inputs, target):
-    res = (torch.sum(-target * F.log_softmax(inputs), dim=1))
+    res = (torch.sum(-target * F.log_softmax(inputs, dim=1), dim=1))
     return res.mean()
 
 

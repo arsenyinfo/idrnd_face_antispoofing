@@ -46,7 +46,7 @@ def create_soften_fn(v):
     def soften(x):
         r = np.ones(4) * (1 - v) / 4
         r[x] = v
-        return r / r.sum()
+        return r.astype('float32') / r.sum()
 
     return soften
 
