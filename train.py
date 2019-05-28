@@ -168,6 +168,11 @@ def update_config(config, params):
         conf[key] = v
 
 
+def soft_cross_entropy(inputs, target):
+    res = (torch.sum(-target * F.log_softmax(inputs), dim=1))
+    return res.mean()
+
+
 def fit(parallel=False, **kwargs):
     with open('config.yaml') as cfg:
         config = yaml.load(cfg)
@@ -186,7 +191,7 @@ def fit(parallel=False, **kwargs):
                       train=train,
                       val=val,
                       work_dir=work_dir,
-                      loss_fn=nn.CrossEntropyLoss(),
+                      loss_fn=soft_cross_entropy,
                       optimizer=optimizer,
                       scheduler=ReduceLROnPlateau(factor=.2, patience=5, optimizer=optimizer),
                       device='cuda:0',

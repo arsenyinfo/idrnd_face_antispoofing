@@ -42,12 +42,22 @@ def _read_img(x: str):
     return img
 
 
+def create_soften_fn(v):
+    def soften(x):
+        r = np.ones(4) * (1 - v) / 4
+        r[x] = v
+        return r / r.sum()
+
+    return soften
+
+
 class IdRndDataset(Dataset):
     def __init__(self,
                  files: Tuple[str],
                  transform_fn: Callable,
                  normalize_fn: Callable,
                  corrupt_fn: Optional[Callable] = None,
+                 soften_fn: Optional[Callable] = None,
                  preload: bool = True,
                  preload_size: Optional[int] = 0,
                  verbose=True):
@@ -60,6 +70,7 @@ class IdRndDataset(Dataset):
         self.corrupt_fn = corrupt_fn
         self.transform_fn = transform_fn
         self.normalize_fn = normalize_fn
+        self.soften_fn = soften_fn
         logger.info(f'Dataset has been created with {len(self.imgs)} samples')
 
         if preload:
@@ -104,7 +115,7 @@ class IdRndDataset(Dataset):
     def get_raw(self, idx):
         img, label = self.imgs[idx], self.labels[idx]
         if not self.preload:
-            img = self. _preload(img, self.size)
+            img = self._preload(img, self.size)
         img = self.transform_fn(img)
         if self.corrupt_fn is not None:
             img = self.corrupt_fn(img)
@@ -113,6 +124,8 @@ class IdRndDataset(Dataset):
     def __getitem__(self, idx):
         img, label = self.get_raw(idx)
         img = self._preprocess(img)
+        if self.soften_fn is not None:
+            label = self.soften_fn(label)
         return {'img': img, 'label': label}
 
     @staticmethod
@@ -123,6 +136,7 @@ class IdRndDataset(Dataset):
         transform_fn = aug.get_transforms(size=config['size'], scope=config['scope'], crop=config['crop'])
         normalize_fn = aug.get_normalize()
         corrupt_fn = aug.get_corrupt_function(config['corrupt'])
+        soften_fn = create_soften_fn(config.get('soften', 1))
 
         def hash_fn(x: str, salt: str = '') -> str:
             x = os.path.basename(x)
@@ -142,4 +156,5 @@ class IdRndDataset(Dataset):
                             corrupt_fn=corrupt_fn,
                             normalize_fn=normalize_fn,
                             transform_fn=transform_fn,
+                            soften_fn=soften_fn,
                             verbose=verbose)
