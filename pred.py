@@ -56,18 +56,18 @@ def read_img(x, target=384):
 class TestAntispoofDataset(Dataset):
     def __init__(self, paths):
         self.paths = paths
+        self.n_crops = 6
 
     def __getitem__(self, index):
-        n_crops = 6
-        img_idx = index // n_crops
-        crop_idx = index % n_crops
+        img_idx = index // self.n_crops
+        crop_idx = index % self.n_crops
         image_info = self.paths[img_idx]
         img = read_img(image_info['path'])
         img = make_crops(img, target=256, idx=crop_idx)
         return image_info['id'], image_info['frame'], np.transpose(img, (2, 0, 1))
 
     def __len__(self):
-        return len(self.paths) * 6
+        return len(self.paths) * self.n_crops
 
 
 if __name__ == '__main__':

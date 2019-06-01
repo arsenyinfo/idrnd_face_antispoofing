@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 import albumentations as albu
+from albumentations.core.transforms_interface import NoOp
 
 
 def get_transforms(size: int, scope: str = 'geometric', crop='random'):
@@ -27,7 +28,8 @@ def get_transforms(size: int, scope: str = 'geometric', crop='random'):
                                      albu.Transpose(always_apply=True),
                                      albu.OpticalDistortion(always_apply=True, distort_limit=0.1, shift_limit=0.1),
                                      albu.ElasticTransform(always_apply=True),
-                                     ])
+                                     ]),
+            'empty': NoOp(),
             }
 
     aug_fn = augs[scope]

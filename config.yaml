@@ -16,13 +16,24 @@ train:
 val:
   data_dir: *DATA_DIR
   size: *SIZE
-  scope: geometric
+  scope: weak
   crop: center
   preload: *PRELOAD
   preload_size: *PRELOAD_SIZE
   bounds: [.9, 1]
   corrupt: null
   test: *IS_TEST
+  mixup: 0
+
+test:
+  data_dir: *DATA_DIR
+  size: *SIZE
+  scope: empty
+  crop: center
+  preload: false
+  preload_size: *PRELOAD_SIZE
+  corrupt: null
+  test: true
   mixup: 0
 
 batch_size: 32
