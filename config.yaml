@@ -11,7 +11,7 @@ train:
   scope: geometric
   corrupt: null
   test: &IS_TEST false
-  mixup: true
+  mixup: 0
 
 val:
   data_dir: *DATA_DIR
@@ -23,6 +23,7 @@ val:
   bounds: [.9, 1]
   corrupt: null
   test: *IS_TEST
+  mixup: 0
 
 batch_size: 32
 model: densenet121
@@ -53,6 +54,7 @@ stages:
         - name: grid_distortion
         - name: gray
       soften: .9
+      mixup: 0.5
   - epochs: 100
     loss_weights: [1, 1, 1, 2]
     train:
@@ -72,3 +74,4 @@ stages:
         - name: hsv_shift
         - name: sharpen
       soften: .99
+      mixup: 0

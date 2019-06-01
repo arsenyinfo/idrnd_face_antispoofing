@@ -60,7 +60,7 @@ class IdRndDataset(Dataset):
                  soften_fn: Optional[Callable] = None,
                  preload: bool = True,
                  preload_size: Optional[int] = 0,
-                 mixup: bool = False,
+                 mixup: float = 0,
                  verbose=True):
 
         self.size = preload_size
@@ -72,7 +72,7 @@ class IdRndDataset(Dataset):
         self.transform_fn = transform_fn
         self.normalize_fn = normalize_fn
         self.soften_fn = soften_fn
-        self.use_mixup = mixup
+        self.mixup_proba = mixup
         logger.info(f'Dataset has been created with {len(self.imgs)} samples')
 
         if preload:
@@ -133,10 +133,14 @@ class IdRndDataset(Dataset):
             new_idx = np.random.randint(len(self))
         img_b, label_b = self.get_raw(new_idx)
         lmbda = np.random.beta(1, 1)
-        return img_a * lmbda + img_b * (1 - lmbda), label_a * lmbda + label_b * (1 - lmbda)
+
+        img = img_a.astype('float32') * lmbda + img_b.astype('float32') * (1 - lmbda)
+        label = label_a * lmbda + label_b * (1 - lmbda)
+        return img.astype('uint8'), label
 
     def __getitem__(self, idx):
-        img, label = self.mixup(idx) if self.use_mixup else self.get_raw(idx)
+        get_fn = self.get_raw if np.random.rand() > self.mixup_proba else self.mixup
+        img, label = get_fn(idx)
         if self.corrupt_fn is not None:
             img = self.corrupt_fn(img)
 
@@ -191,4 +195,4 @@ class IdRndDataset(Dataset):
     def update_config(self, config):
         self.corrupt_fn = aug.get_corrupt_function(config['corrupt'])
         self.soften_fn = create_soften_fn(config['soften'])
-        self.use_mixup = config['mixup']
+        self.mixup_proba = config['mixup']
