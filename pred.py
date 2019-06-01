@@ -14,6 +14,8 @@ from tqdm import tqdm
 
 BATCH_SIZE = 32
 
+torch.backends.cudnn.benchmark = True
+
 
 def make_crops(img, target, idx):
     w, h, _ = img.shape
@@ -99,7 +101,7 @@ if __name__ == '__main__':
         for video, frame, batch in tqdm(dataloader):
             batch = batch.to(device)
 
-            acc = np.zeros((BATCH_SIZE, 4), dtype='float32')
+            acc = np.zeros((batch.size()[0], 4), dtype='float32')
             for model in models:
                 acc += torch.softmax(model(batch), dim=1).cpu().numpy()
             acc /= len(models)
