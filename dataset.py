@@ -60,6 +60,7 @@ class IdRndDataset(Dataset):
                  soften_fn: Optional[Callable] = None,
                  preload: bool = True,
                  preload_size: Optional[int] = 0,
+                 mixup: bool = False,
                  verbose=True):
 
         self.size = preload_size
@@ -71,6 +72,7 @@ class IdRndDataset(Dataset):
         self.transform_fn = transform_fn
         self.normalize_fn = normalize_fn
         self.soften_fn = soften_fn
+        self.use_mixup = mixup
         logger.info(f'Dataset has been created with {len(self.imgs)} samples')
 
         if preload:
@@ -117,15 +119,28 @@ class IdRndDataset(Dataset):
         if not self.preload:
             img = self._preload(img, self.size)
         img = self.transform_fn(img)
-        if self.corrupt_fn is not None:
-            img = self.corrupt_fn(img)
-        return img, label
-
-    def __getitem__(self, idx):
-        img, label = self.get_raw(idx)
-        img = self._preprocess(img)
         if self.soften_fn is not None:
             label = self.soften_fn(label)
+        return img, label
+
+    def mixup(self, idx):
+        """
+        https://arxiv.org/pdf/1710.09412.pdf
+        """
+        img_a, label_a = self.get_raw(idx)
+        new_idx = idx
+        while idx == new_idx:
+            new_idx = np.random.randint(len(self))
+        img_b, label_b = self.get_raw(new_idx)
+        lmbda = np.random.beta(1, 1)
+        return img_a * lmbda + img_b * (1 - lmbda), label_a * lmbda + label_b * (1 - lmbda)
+
+    def __getitem__(self, idx):
+        img, label = self.mixup(idx) if self.use_mixup else self.get_raw(idx)
+        if self.corrupt_fn is not None:
+            img = self.corrupt_fn(img)
+
+        img = self._preprocess(img)
         return {'img': img, 'label': label}
 
     @staticmethod
@@ -170,8 +185,10 @@ class IdRndDataset(Dataset):
                             normalize_fn=normalize_fn,
                             transform_fn=transform_fn,
                             soften_fn=soften_fn,
+                            mixup=config['mixup'],
                             verbose=verbose)
 
     def update_config(self, config):
         self.corrupt_fn = aug.get_corrupt_function(config['corrupt'])
         self.soften_fn = create_soften_fn(config['soften'])
+        self.use_mixup = config['mixup']
