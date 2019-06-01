@@ -1,4 +1,5 @@
 import os
+from functools import partial
 from typing import Callable, Optional
 
 import numpy as np
@@ -24,8 +25,8 @@ from models import get_baseline
 class Trainer:
     def __init__(self,
                  model: nn.Module,
-                 train: DataLoader,
-                 val: DataLoader,
+                 train: Optional[DataLoader],
+                 val: Optional[DataLoader],
                  epochs: int = 200,
                  early_stop: int = 10,
                  optimizer: Optional[torch.optim.Optimizer] = None,
@@ -134,16 +135,16 @@ class Trainer:
 
         return False, (train_loss, val_loss, train_acc, val_acc)
 
-    def fit(self):
+    def fit(self, start_epoch: int):
         for i in range(self.epochs):
-            finished, (train_loss, val_loss, train_acc, val_acc) = self.fit_one_epoch(i)
+            finished, (train_loss, val_loss, train_acc, val_acc) = self.fit_one_epoch(i + start_epoch)
             for name, scalar in (('train_loss', train_loss),
                                  ('val_loss', val_loss),
                                  ('train_acc', train_acc),
                                  ('val_acc', val_acc)):
                 self.tb_writer.add_scalar(name, scalar, global_step=i)
             if finished:
-                break
+                return i
 
 
 def make_dataloaders(train_cfg, val_cfg, batch_size, multiprocessing=False):
@@ -169,8 +170,11 @@ def update_config(config, params):
         conf[key] = v
 
 
-def soft_cross_entropy(inputs, target):
-    res = (torch.sum(-target * F.log_softmax(inputs, dim=1), dim=1))
+def soft_cross_entropy(inputs, target, weights):
+    raw = -target * F.log_softmax(inputs, dim=1)
+    if weights is not None:
+        raw = raw * weights.view(1, -1)
+    res = (torch.sum(raw, dim=1))
     return res.mean()
 
 
@@ -187,19 +191,32 @@ def fit(parallel=False, **kwargs):
 
     train, val = make_dataloaders(config['train'], config['val'], config['batch_size'], multiprocessing=parallel)
     model = DataParallel(get_baseline(config['model']))
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
+
     trainer = Trainer(model=model,
                       train=train,
                       val=val,
                       work_dir=work_dir,
-                      loss_fn=soft_cross_entropy,
+                      loss_fn=None,
                       optimizer=optimizer,
                       scheduler=ReduceLROnPlateau(factor=.2, patience=5, optimizer=optimizer),
                       device='cuda:0',
                       )
-    trainer.fit()
+
+    stages = config['stages']
+    epochs_completed = 0
+    for i, stage in enumerate(stages):
+        logger.info(f'Starting stage {i}')
+        # ToDo: update train properties: mixup, crop type
+        trainer.train.dataset.update_config(stage['train'])
+        trainer.epochs = stage['epochs']
+        weights = torch.from_numpy(np.array(stage['loss_weights'], dtype='float32')).to('cuda:0')
+        trainer.loss_fn = partial(soft_cross_entropy,
+                                  weights=weights)
+        epochs_completed = trainer.fit(epochs_completed)
+
     convert_model(model_path=os.path.join(work_dir, 'model.pt'),
-                  out_name=os.path.join(work_dir, "model.trcd"),
+                  out_name=os.path.join(work_dir, f'{config["name"]}.trcd'),
                   name=config['model']
                   )
 

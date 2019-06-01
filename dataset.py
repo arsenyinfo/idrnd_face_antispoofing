@@ -158,3 +158,7 @@ class IdRndDataset(Dataset):
                             transform_fn=transform_fn,
                             soften_fn=soften_fn,
                             verbose=verbose)
+
+    def update_config(self, config):
+        self.corrupt_fn = aug.get_corrupt_function(config['corrupt'])
+        self.soften_fn = create_soften_fn(config['soften'])

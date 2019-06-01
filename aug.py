@@ -23,9 +23,9 @@ def get_transforms(size: int, scope: str = 'geometric', crop='random'):
             'weak': albu.Compose([albu.HorizontalFlip(),
                                   ]),
             'geometric': albu.OneOf([albu.HorizontalFlip(always_apply=True),
-                                     albu.ShiftScaleRotate(always_apply=True, scale_limit=.2),
+                                     albu.ShiftScaleRotate(always_apply=True, scale_limit=.5, rotate_limit=30),
                                      albu.Transpose(always_apply=True),
-                                     albu.OpticalDistortion(always_apply=True),
+                                     albu.OpticalDistortion(always_apply=True, distort_limit=0.1, shift_limit=0.1),
                                      albu.ElasticTransform(always_apply=True),
                                      ])
             }
@@ -70,6 +70,9 @@ def _resolve_aug_fn(name):
         'sharpen': albu.IAASharpen,
         'jpeg': albu.JpegCompression,
         'gray': albu.ToGray,
+        'channel_shuffle': albu.ChannelShuffle,
+        'grid_distortion': albu.GridDistortion,
+
         # ToDo: pixelize
         # ToDo: partial gray
     }
