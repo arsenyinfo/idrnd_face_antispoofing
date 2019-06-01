@@ -145,6 +145,7 @@ class Trainer:
                 self.tb_writer.add_scalar(name, scalar, global_step=i)
             if finished:
                 return i
+        return self.epochs
 
 
 def make_dataloaders(train_cfg, val_cfg, batch_size, multiprocessing=False):
@@ -202,7 +203,6 @@ def fit(parallel=False, **kwargs):
                       optimizer=optimizer,
                       scheduler=ReduceLROnPlateau(factor=.2, patience=5, optimizer=optimizer),
                       device='cuda:0',
-                      checkpoint= f'./fold_{config["train"]["n_fold"]}.pt',
                       )
 
     stages = config['stages']
@@ -218,7 +218,7 @@ def fit(parallel=False, **kwargs):
         epochs_completed = trainer.fit(epochs_completed)
 
     convert_model(model_path=os.path.join(work_dir, 'model.pt'),
-                  out_name=os.path.join(work_dir, f'{config["name"]}.trcd'),
+                  out_name=os.path.join(work_dir, f'{config["name"]}_{config["n_fold"]}.trcd'),
                   name=config['model']
                   )
 
