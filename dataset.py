@@ -144,11 +144,24 @@ class IdRndDataset(Dataset):
             return sha1(f'{label}_{video}_{salt}'.encode()).hexdigest()
 
         verbose = config.get('verbose', True)
-        data = subsample(data=files,
-                         bounds=config.get('bounds', (0, 1)),
+        n_fold = config['n_fold']
+        total_folds = 10
+        test = subsample(data=files,
+                         bounds=(1 / total_folds * n_fold, 1 / total_folds * (n_fold + 1)),
                          hash_fn=hash_fn,
                          verbose=verbose,
-                         salt=config['salt'])
+                         salt='validation'
+                         )
+
+        if config['test']:
+            data = test
+        else:
+            files = set(files) - set(test)
+            data = subsample(data=files,
+                             bounds=config.get('bounds', (0, 1)),
+                             hash_fn=hash_fn,
+                             verbose=verbose,
+                             salt=config['salt'])
 
         return IdRndDataset(files=tuple(data),
                             preload=config['preload'],

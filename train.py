@@ -188,6 +188,7 @@ def fit(parallel=False, **kwargs):
         yaml.dump(config, out)
 
     config['train']['salt'] = config['val']['salt'] = config['name']
+    config['train']['n_fold'] = config['val']['n_fold'] = config['n_fold']
 
     train, val = make_dataloaders(config['train'], config['val'], config['batch_size'], multiprocessing=parallel)
     model = DataParallel(get_baseline(config['model']))
@@ -201,6 +202,7 @@ def fit(parallel=False, **kwargs):
                       optimizer=optimizer,
                       scheduler=ReduceLROnPlateau(factor=.2, patience=5, optimizer=optimizer),
                       device='cuda:0',
+                      checkpoint= f'./fold_{config["train"]["n_fold"]}.pt',
                       )
 
     stages = config['stages']
