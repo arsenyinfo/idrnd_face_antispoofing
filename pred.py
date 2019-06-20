@@ -21,14 +21,12 @@ def make_crops(img, target, idx):
     w, h, _ = img.shape
     assert w == h
     margin = w - target
-    half = int(margin / 2)
-    crops = [lambda img: img[:-margin, :-margin, :],
-             lambda img: img[:-margin, margin:, :],
-             lambda img: img[margin:, margin:, :],
-             lambda img: img[margin:, :-margin, :],
-             lambda img: img[half:-half, half:-half, :],
-             lambda img: cv2.resize(img, (target, target))
-             ]
+    crops = [
+        lambda img: img[:-margin, :-margin, :],
+        lambda img: img[:-margin, margin:, :],
+        lambda img: img[margin:, margin:, :],
+        lambda img: img[margin:, :-margin, :],
+    ]
     return crops[idx](img)
 
 
@@ -56,7 +54,7 @@ def read_img(x, target=384):
 class TestAntispoofDataset(Dataset):
     def __init__(self, paths):
         self.paths = paths
-        self.n_crops = 6
+        self.n_crops = 4
 
     def __getitem__(self, index):
         img_idx = index // self.n_crops
@@ -64,14 +62,13 @@ class TestAntispoofDataset(Dataset):
         image_info = self.paths[img_idx]
         img = read_img(image_info['path'])
         img = make_crops(img, target=256, idx=crop_idx)
-        return image_info['id'], image_info['frame'], np.transpose(img, (2, 0, 1))
+        return image_info['id'], np.transpose(img, (2, 0, 1))
 
     def __len__(self):
         return len(self.paths) * self.n_crops
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--path-images-csv', type=str, required=True)
     parser.add_argument('--path-test-dir', type=str, required=True)
@@ -93,29 +90,25 @@ if __name__ == '__main__':
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # predict
-    samples, frames, probabilities = [], [], []
+    samples, probabilities = [], []
 
     models = [load(x).to(device) for x in glob('*.trcd')]
 
     with torch.no_grad():
-        for video, frame, batch in tqdm(dataloader):
+        for video, batch in tqdm(dataloader):
             batch = batch.to(device)
 
-            acc = np.zeros((batch.size()[0], 4), dtype='float32')
             for model in models:
-                acc += torch.softmax(model(batch), dim=1).cpu().numpy()
-            acc /= len(models)
-            proba = acc[:, :-1].sum(axis=1)
-            samples.extend(video)
-            frames.extend(frame.numpy())
-            probabilities.extend(proba)
+                proba = torch.softmax(model(batch), dim=1).cpu().numpy()
+                proba = proba[:, :-1].sum(axis=1)
+                samples.extend(video)
+                probabilities.extend(proba)
 
     # save
     predictions = pd.DataFrame.from_dict({
         'id': samples,
-        'frame': frames,
         'probability': probabilities})
 
-    predictions = predictions.groupby('id').probability.mean().reset_index()
+    predictions = predictions.groupby('id').mean().reset_index()
     predictions['prediction'] = predictions.probability
     predictions[['id', 'prediction']].to_csv(args.path_submission_csv, index=False)

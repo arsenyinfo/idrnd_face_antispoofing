@@ -95,7 +95,7 @@ def explore_models(models, batch_size):
         d = {'load_time': t1 - t0,
              'name': m
              }
-        _, n_fold = os.path.basename(m).split('_')
+        *_, n_fold = os.path.basename(m).split('_')
         n_fold, _ = n_fold.split('.')
         n_fold = int(n_fold)
         metrics = evaluate(model=model,
@@ -113,7 +113,12 @@ def main(pattern="./**/*_?.trcd", batch_size=64):
     for x in explore_models(models, batch_size=batch_size):
         data.append(x)
 
-    df = pd.DataFrame(data).sort_values('test_metric').set_index('name')
+    df = pd.DataFrame(data).sort_values('test_metric')
+    df.to_csv('scores.csv', index=False)
+    print(df.set_index('name'))
+
+    df['model'] = df['name'].apply(lambda x: x.split('/')[1])
+    df = df.groupby('model').agg(np.mean)
     print(df)
 
 
